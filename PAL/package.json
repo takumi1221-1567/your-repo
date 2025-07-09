@@ -1,7 +1,7 @@
 {
-  "name": "r09-personal-terminal",
+  "name": "pal-personal-terminal",
   "version": "1.0.0",
-  "description": "A futuristic AI assistant",
+  "description": "Your personal AI companion, PAL",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
