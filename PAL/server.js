@@ -306,7 +306,3 @@ app.post('/audio-transcript', upload.single('audio'), async (request, response) 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('パルのバックエンドサーバーが起動しました。ポート番号: ' + listener.address().port);
 });
-
-const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('パルのバックエンドサーバーが起動しました。ポート番号: ' + listener.address().port);
-});
