@@ -1,7 +1,7 @@
 {
-  "name": "glitch-project",
+  "name": "r09-personal-terminal",
   "version": "1.0.0",
-  "description": "A multi-API project on Glitch",
+  "description": "A futuristic AI assistant",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
