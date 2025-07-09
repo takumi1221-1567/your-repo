@@ -36,10 +36,10 @@ document.addEventListener('DOMContentLoaded', () => {
         questionInput.value = '';
         await typewriterEffect('考え中...');
         try {
-            const response = await fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, conversation_id: conversationId, userId: 'r09-user-01' }) });
+            const response = await fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, conversation_id: conversationId, userId: 'pal-user-01' }) });
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({ answer: 'AIとの通信に失敗しました。'}));
-                throw new Error(errData.answer);
+                throw new Error(errData.answer || errData.message);
             }
             if(response.headers.get('content-type')?.includes('application/json')){
                 const data = await response.json();
@@ -77,8 +77,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleCamera = async () => { const cameraIcon = document.querySelector('[data-app="camera"] .app-icon-symbol'); if (isCameraOn) { const context = imageCanvas.getContext('2d'); imageCanvas.width = cameraView.videoWidth; imageCanvas.height = cameraView.videoHeight; context.drawImage(cameraView, 0, 0, imageCanvas.width, imageCanvas.height); const base64 = imageCanvas.toDataURL('image/jpeg').split(',')[1]; if (cameraView.srcObject) cameraView.srcObject.getTracks().forEach(track => track.stop()); cameraView.style.display = 'none'; characterImage.style.display = 'block'; isCameraOn = false; cameraIcon.textContent = '📷'; await typewriterEffect("画像を解析しています..."); try { const response = await fetch('/image-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64: base64 }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || '解析サーバーでエラーが発生しました。'); const topConcept = data.outputs[0].data.concepts[0]; const text = `これは「${topConcept.name}」ですね！`; await typewriterEffect(text); speak(text, TALKING_IMAGE); } catch (error) { await typewriterEffect(error.message); speak("ごめんなさい、うまく解析できませんでした。", SAD_IMAGE); } } else { await typewriterEffect("カメラを起動します..."); try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); cameraView.srcObject = stream; cameraView.style.display = 'block'; characterImage.style.display = 'none'; isCameraOn = true; cameraIcon.textContent = '📸'; await typewriterEffect("スクリーンをタップして撮影します。"); cameraView.onclick = () => handleCamera(); } catch (error) { await typewriterEffect("カメラの起動に失敗しました。"); speak("カメラが使えませんでした。", SAD_IMAGE); } } };
     const handleVoiceInput = () => { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { typewriterEffect("お使いのブラウザは音声入力に対応していません。"); return; } const recognition = new SpeechRecognition(); recognition.lang = 'ja-JP'; recognition.onstart = () => { typewriterEffect("話しかけてください..."); changeCharacterImage(TALKING_IMAGE); }; recognition.onend = () => { changeCharacterImage(NORMAL_IMAGE); }; recognition.onresult = (event) => { const spokenText = event.results[0][0].transcript; questionInput.value = spokenText; askDify(spokenText); }; recognition.onerror = (event) => { typewriterEffect("うまく聞き取れませんでした。"); }; try { recognition.start(); } catch (e) { typewriterEffect("音声認識を開始できませんでした。"); } };
     const handleTranscriptionUpload = async (file) => { await typewriterEffect("ファイルを解析・文字起こし中..."); const formData = new FormData(); formData.append('audio', file); try { const response = await fetch('/audio-transcript', { method: 'POST', body: formData }); const data = await response.json(); if (!response.ok) throw new Error(data.error || '文字起こしに失敗しました。'); let transcriptText = "【文字起こし結果】\n\n"; if (data.utterances && data.utterances.length > 0) { data.utterances.forEach(utterance => { transcriptText += `話者 ${utterance.speaker}: ${utterance.text}\n`; }); } else { transcriptText += data.text; } if (data.sentiment_analysis_results && data.sentiment_analysis_results.length > 0) { const sentiment = data.sentiment_analysis_results[0].sentiment; transcriptText += `\n\n【全体の感情: ${sentiment}】`; } await typewriterEffect(transcriptText); speak("文字起こしが完了しました。"); } catch (error) { await typewriterEffect(error.message); speak("ファイルの文字起こしに失敗しました。", SAD_IMAGE); } };
-    const handleSaveMemory = async () => { await typewriterEffect("今日の会話を記憶しています..."); try { const response = await fetch('/end-conversation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'r09-user-01' }) }); const data = await response.json(); await typewriterEffect(data.message); speak(data.message); } catch (error) { await typewriterEffect("記憶中にエラーが発生しました。"); speak("うまく記憶できませんでした。", SAD_IMAGE); } };
-    const fetchReminders = async () => { try { const response = await fetch('/get-reminders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'r09-user-01' }) }); const data = await response.json(); if (data.reminders) { localReminders = data.reminders; } } catch (error) { console.error("リマインダーの取得に失敗"); } };
+    const handleSaveMemory = async () => { await typewriterEffect("今日の会話を記憶しています..."); try { const response = await fetch('/end-conversation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'pal-user-01' }) }); const data = await response.json(); await typewriterEffect(data.message); speak(data.message); } catch (error) { await typewriterEffect("記憶中にエラーが発生しました。"); speak("うまく記憶できませんでした。", SAD_IMAGE); } };
+    const fetchReminders = async () => { try { const response = await fetch('/get-reminders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'pal-user-01' }) }); const data = await response.json(); if (data.reminders) { localReminders = data.reminders; } } catch (error) { console.error("リマインダーの取得に失敗"); } };
     const checkReminders = () => { const now = new Date(); localReminders.forEach(reminder => { const eventDate = new Date(reminder.eventDate); const hoursUntilEvent = (eventDate - now) / 36e5; if (hoursUntilEvent > 1 && hoursUntilEvent <= 3 && !notifiedReminders.has(reminder._id)) { const message = `リマインダーです。「${reminder.eventName}」まであと${Math.floor(hoursUntilEvent)}時間くらいですよ。`; typewriterEffect(message); speak(message, TALKING_IMAGE); notifiedReminders.add(reminder._id); } }); };
     const addReminder = async () => { const text = prompt("📅 リマインダーの内容を日時を含めて入力してください。\n例: 明日の15時から会議"); if (!text || !text.trim()) return; await typewriterEffect("新しい予定を覚えています..."); try { const response = await fetch('/add-reminder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }); const data = await response.json(); await typewriterEffect(data.message); speak(data.message); fetchReminders(); } catch (error) { await typewriterEffect("予定の登録に失敗しました。"); speak("エラーで覚えられませんでした。", SAD_IMAGE); } };
 
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     appLauncherButton.addEventListener('click', toggleAppDrawer);
     sendButton.addEventListener('click', () => askDify(questionInput.value));
     questionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); askDify(questionInput.value); } });
-
+    
     appIcons.forEach(icon => {
         icon.addEventListener('click', () => {
             toggleAppDrawer();
@@ -102,19 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    audioFileInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) { handleTranscriptionUpload(file); }
-        event.target.value = null;
-    });
+    audioFileInput.addEventListener('change', (event) => { const file = event.target.files[0]; if (file) { handleTranscriptionUpload(file); } event.target.value = null; });
     
     // --- 初期化処理 ---
     const init = async () => {
-        if (speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-        }
+        if (speechSynthesis.onvoiceschanged !== undefined) { speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); }
         changeCharacterImage(NORMAL_IMAGE);
-        let initialMessage = "こんにちは。僕の名前はR09だよ。";
+        let initialMessage = "こんにちは。僕の名前はパルだよ。";
         if (isIPhone) {
             await fetchReminders();
             const today = new Date().toDateString();
@@ -127,6 +121,5 @@ document.addEventListener('DOMContentLoaded', () => {
         await typewriterEffect(initialMessage);
         speak(initialMessage, NORMAL_IMAGE);
     };
-
     init();
 });
