@@ -41,7 +41,7 @@ app.get('/', (request, response) => {
 
 app.post('/ask', async (request, response) => {
   let { question, conversation_id, userId } = request.body;
-  if (!userId) userId = 'r09-user-01';
+  if (!userId) userId = 'pal-user-01';
 
   try {
     let user = await User.findOne({ userId });
@@ -72,7 +72,7 @@ app.post('/ask', async (request, response) => {
     }
     
     user.currentChatLog.push(`ユーザー: ${question}`);
-    let promptContext = `あなたはAIアシスタントの「R09」です。ユーザーの名前は「${user.name}」です。`;
+    let promptContext = `あなたはAIアシスタントの「パル」です。ユーザーの名前は「${user.name}」です。`;
     if (user.memories && user.memories.length > 0) {
       promptContext += `あなたはユーザーに関する以下の事柄を記憶しています: ${user.memories.join('; ')}。`;
     }
@@ -113,7 +113,7 @@ app.post('/ask', async (request, response) => {
 
 app.post('/end-conversation', async (request, response) => {
     let { userId } = request.body;
-    if (!userId) userId = 'r09-user-01';
+    if (!userId) userId = 'pal-user-01';
     try {
         const user = await User.findOne({ userId });
         if (!user || user.currentChatLog.length < 2) {
@@ -143,7 +143,7 @@ app.post('/end-conversation', async (request, response) => {
 });
 
 app.post('/add-reminder', async (request, response) => {
-    const { text, userId = 'r09-user-01' } = request.body;
+    const { text, userId = 'pal-user-01' } = request.body;
     if (!text) return response.status(400).json({ error: 'リマインダーの内容がありません。' });
     const parsedResult = chrono.ja.parse(text);
     if (!parsedResult || parsedResult.length === 0) {
@@ -160,7 +160,7 @@ app.post('/add-reminder', async (request, response) => {
 });
 
 app.post('/get-reminders', async (request, response) => {
-    const { userId = 'r09-user-01' } = request.body;
+    const { userId = 'pal-user-01' } = request.body;
     try {
         const user = await User.findOne({ userId });
         if (user) {
@@ -250,5 +250,5 @@ app.post('/audio-transcript', upload.single('audio'), async (request, response) 
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('R09のバックエンドサーバーが起動しました。ポート番号: ' + listener.address().port);
+  console.log('パルのバックエンドサーバーが起動しました。ポート番号: ' + listener.address().port);
 });
