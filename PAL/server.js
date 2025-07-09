@@ -4,6 +4,8 @@ const fetch = require('node-fetch');
 const multer = require('multer');
 const mongoose = require('mongoose');
 const chrono = require('chrono-node');
+const path = require('path'); // ★ この行を追加しました
+
 require('dotenv').config();
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -35,7 +37,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 
 app.get('/', (request, response) => {
-  response.sendFile(__dirname + '/public/index.html');
+  // ★ この行を修正しました
+  response.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.post('/ask', async (request, response) => {
