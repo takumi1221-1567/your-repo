@@ -10,7 +10,7 @@ const SAD_IMAGE = 'https://cdn.glitch.global/62146793-461b-4f49-9113-c0eabe1bacb
 const OPENWEATHERMAP_API_KEY = "240647e0fe2bca93f218a85475def0d3"; // あなたのAPIキーに置き換えてください
 // --- ▲▲▲ あなたの情報に書き換えてください ▲▲▲ ---
 
-  // --- HTML要素の取得 ---
+ // --- HTML要素の取得 ---
     const answerBox = document.getElementById('answer-box');
     const questionInput = document.getElementById('question-input');
     const sendButton = document.getElementById('send-button');
@@ -58,7 +58,6 @@ const OPENWEATHERMAP_API_KEY = "240647e0fe2bca93f218a85475def0d3"; // あなた�
 
     const speak = (text, finalImage = NORMAL_IMAGE) => {
         if (lipSyncInterval) clearInterval(lipSyncInterval);
-        // 現在の発話をキャンセル
         window.speechSynthesis.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
@@ -106,27 +105,29 @@ const OPENWEATHERMAP_API_KEY = "240647e0fe2bca93f218a85475def0d3"; // あなた�
             answerBox.textContent = "";
             answerBox.classList.add('typing');
 
-            while(true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-
-                const decodedChunk = decoder.decode(value, { stream: true });
-                const lines = decodedChunk.split('\n').filter(line => line.startsWith('data: '));
-                for (const line of lines) {
-                    try {
-                        const jsonStr = line.substring(6);
-                        if (jsonStr) {
-                            const data = JSON.parse(jsonStr);
-                            if (data.answer) {
-                                fullAnswer += data.answer;
-                                answerBox.textContent = fullAnswer;
-                                answerBox.scrollTop = answerBox.scrollHeight;
+            const streamReader = async () => {
+                while(true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    const decodedChunk = decoder.decode(value, { stream: true });
+                    const lines = decodedChunk.split('\n').filter(line => line.startsWith('data: '));
+                    for (const line of lines) {
+                        try {
+                            const jsonStr = line.substring(6);
+                            if (jsonStr) {
+                                const data = JSON.parse(jsonStr);
+                                if (data.answer) {
+                                    fullAnswer += data.answer;
+                                    answerBox.textContent = fullAnswer;
+                                    answerBox.scrollTop = answerBox.scrollHeight;
+                                }
+                                if (data.conversation_id) conversationId = data.conversation_id;
                             }
-                            if (data.conversation_id) conversationId = data.conversation_id;
-                        }
-                    } catch (e) {}
+                        } catch (e) {}
+                    }
                 }
-            }
+            };
+            await streamReader();
             answerBox.classList.remove('typing');
             speak(fullAnswer, NORMAL_IMAGE);
         } catch (error) {
@@ -275,7 +276,7 @@ const OPENWEATHERMAP_API_KEY = "240647e0fe2bca93f218a85475def0d3"; // あなた�
             speak("ごめんなさい、うまく記憶できませんでした。", SAD_IMAGE);
         }
     };
-
+    
     const fetchReminders = async () => {
         try {
             const response = await fetch('/get-reminders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'pal-user-01' }) });
@@ -359,15 +360,27 @@ const OPENWEATHERMAP_API_KEY = "240647e0fe2bca93f218a85475def0d3"; // あなた�
             speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
         changeCharacterImage(NORMAL_IMAGE);
-        const initialMessage = "こんにちは。僕の名前はパルだよ。";
-        await typewriterEffect(initialMessage);
-        speak(initialMessage, NORMAL_IMAGE);
-        
+
+        let initialMessage = "こんにちは。僕の名前はパルだよ。";
+
         if (isIPhone) {
             await fetchReminders();
+            
+            const today = new Date().toDateString();
+            const todaysReminder = localReminders.find(r => new Date(r.eventDate).toDateString() === today);
+
+            if (todaysReminder) {
+                initialMessage = `こんにちは！今日は「${todaysReminder.eventName}」の予定がありますね。お忘れなく！`;
+            }
+            
             setInterval(checkReminders, 60 * 1000);
         }
+        
+        await typewriterEffect(initialMessage);
+        speak(initialMessage, NORMAL_IMAGE);
     };
 
+    init();
+});
     init();
 });
