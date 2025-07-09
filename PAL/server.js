@@ -4,8 +4,7 @@ const fetch = require('node-fetch');
 const multer = require('multer');
 const mongoose = require('mongoose');
 const chrono = require('chrono-node');
-const path = require('path'); // ★ この行を追加しました
-
+const path = require('path');
 require('dotenv').config();
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -37,7 +36,6 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 
 app.get('/', (request, response) => {
-  // ★ この行を修正しました
   response.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -50,9 +48,28 @@ app.post('/ask', async (request, response) => {
     if (!user) {
       user = new User({ userId: userId });
     }
-    
-    user.currentChatLog.push(`ユーザー: ${question}`);
 
+    // 予定に関する質問かチェック
+    if (question.includes('予定')) {
+        let responseMessage = "";
+        const upcomingReminders = user.reminders.filter(r => r.eventDate > new Date());
+        
+        if (upcomingReminders.length > 0) {
+            responseMessage = `${user.name}さんの今後の予定は以下の通りです。\n\n`;
+            upcomingReminders.sort((a, b) => a.eventDate - b.eventDate).forEach(r => {
+                responseMessage += `・${new Date(r.eventDate).toLocaleString('ja-JP')} - ${r.eventName}\n`;
+            });
+        } else {
+            responseMessage = "今後の予定は登録されていないようです。";
+        }
+        response.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+        response.write(`data: ${JSON.stringify({ answer: responseMessage })}\n\n`);
+        response.end();
+        return;
+    }
+    
+    // 通常のAIチャット処理
+    user.currentChatLog.push(`ユーザー: ${question}`);
     let promptContext = `あなたはAIアシスタントの「パル」です。ユーザーの名前は「${user.name}」です。`;
     if (user.memories && user.memories.length > 0) {
       promptContext += `あなたはユーザーに関する以下の事柄を記憶しています: ${user.memories.join('; ')}。`;
@@ -85,14 +102,9 @@ app.post('/ask', async (request, response) => {
             } catch(e) {}
         }
     }
-
-    if (fullAnswer) {
-      user.currentChatLog.push(`AI: ${fullAnswer}`);
-    }
-    
+    if (fullAnswer) { user.currentChatLog.push(`AI: ${fullAnswer}`); }
     await user.save();
     response.end();
-
   } catch (error) {
     console.error("ask API Error:", error);
     if (!response.headersSent) {
@@ -139,22 +151,39 @@ app.post('/add-reminder', async (request, response) => {
     const { text, userId = 'pal-user-01' } = request.body;
     if (!text) return response.status(400).json({ error: 'リマインダーの内容がありません。' });
 
-    const parsedResult = chrono.ja.parse(text);
-    if (!parsedResult || parsedResult.length === 0) {
-        return response.status(400).json({ message: "ごめんなさい、日時をうまく聞き取れませんでした。" });
-    }
-
-    const eventDate = parsedResult[0].start.date();
-    const eventName = text.replace(parsedResult[0].text, '').trim();
-
     try {
+        const parsingPrompt = `以下の文章から「eventName」（イベント名）と「eventDate」（ISO 8601形式の日時）を抽出し、JSONオブジェクトとして返してください。イベント名が不明確な場合は文章全体をイベント名としてください。文章：「${text}」`;
+        
+        const parsingResponse = await fetch(DIFY_API_URL.replace('chat-messages', 'completion-messages'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DIFY_API_KEY}` },
+            body: JSON.stringify({ "inputs": {}, "query": parsingPrompt, "user": userId, "response_mode": "blocking" })
+        });
+
+        if (!parsingResponse.ok) throw new Error('AIによる予定の解析に失敗しました。');
+
+        let parsedData;
+        try {
+            const rawAnswer = (await parsingResponse.json()).answer;
+            const jsonString = rawAnswer.match(/\{.*\}/s)[0];
+            parsedData = JSON.parse(jsonString);
+        } catch (e) {
+            throw new Error('AIの応答形式が正しくありません。');
+        }
+
+        if (!parsedData.eventName || !parsedData.eventDate) {
+             return response.status(400).json({ message: "ごめんなさい、日時や予定内容をうまく聞き取れませんでした。" });
+        }
+        
         await User.findOneAndUpdate(
             { userId: userId },
-            { $push: { reminders: { eventName: eventName, eventDate: eventDate } } },
+            { $push: { reminders: { eventName: parsedData.eventName, eventDate: new Date(parsedData.eventDate) } } },
             { upsert: true }
         );
-        response.json({ message: `「${eventName}」を覚えました！` });
+        response.json({ message: `「${parsedData.eventName}」を覚えました！` });
+
     } catch (error) {
+        console.error("add-reminder Error:", error);
         response.status(500).json({ error: 'リマインダーの保存に失敗しました。' });
     }
 });
@@ -272,6 +301,10 @@ app.post('/audio-transcript', upload.single('audio'), async (request, response) 
         console.error("音声文字起こしエラー:", error);
         response.status(500).json({ error: "音声の文字起こしに失敗しました。" });
     }
+});
+
+const listener = app.listen(process.env.PORT || 3000, () => {
+  console.log('パルのバックエンドサーバーが起動しました。ポート番号: ' + listener.address().port);
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
