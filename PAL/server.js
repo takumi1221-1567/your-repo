@@ -206,7 +206,7 @@ app.post('/image-analysis', async (request, response) => {
   try {
     const clarifaiResponse = await fetch(url, {
       method: 'POST',
-      headers: { 'Authorization': `Key ${CLARIFAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${CLARIFAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ inputs: [{ data: { image: { base64: imageBase64 } } }] })
     });
     if (!clarifaiResponse.ok) { throw new Error(`Clarifai API error`); }
