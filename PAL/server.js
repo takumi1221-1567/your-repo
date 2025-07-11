@@ -213,8 +213,9 @@ app.post('/image-analysis', async (request, response) => {
     const analysisData = await clarifaiResponse.json();
     response.json(analysisData);
   } catch (error) {
-    response.status(500).json({ error: "画像解析に失敗しました。" });
-  }
+     console.error('Clarifai API Error:', error); // この行を追加
+     response.status(500).json({ error: "画像解析に失敗しました。" });
+ }
 });
 
 app.post('/audio-transcript', upload.single('audio'), async (request, response) => {
