@@ -4,39 +4,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const TALKING_IMAGE = 'https://cdn.glitch.global/b6695808-4100-47b5-87a4-b9a0f7430888/IMG_3071.PNG?v=1751554879485';
     const SAD_IMAGE = NORMAL_IMAGE;
 
-    // --- HTML要素の取得 ---
-   const answerBox = document.getElementById('answer-box');
+   // --- HTML要素の取得 ---
+    const answerBox = document.getElementById('answer-box');
     const questionInput = document.getElementById('question-input');
     const sendButton = document.getElementById('send-button');
     const appLauncherButton = document.getElementById('app-launcher-button');
     const appDrawer = document.getElementById('app-drawer');
     const characterImage = document.getElementById('character-image');
     const cameraView = document.getElementById('camera-view');
-    const faceCanvas = document.getElementById('face-canvas'); // ID名を変更
+    const faceCanvas = document.getElementById('face-canvas');
     const appIcons = document.querySelectorAll('.app-icon');
     const audioFileInput = document.getElementById('audio-file-input');
     const isIPhone = /iPhone/.test(navigator.userAgent);
 
     // --- グローバル変数 ---
     let conversationId = "";
-    let lipSyncInterval;
-    let isCameraOn = false; // これは元のカメラ機能用
+    let isCameraOn = false;
     let localReminders = [];
     let notifiedReminders = new Set();
-    
-    // ▼▼▼ 顔認証用の変数を追加 ▼▼▼
     let isRegisteringFace = false;
     let capturedDescriptor = null;
 
     // --- コア機能・ヘルパー関数 ---
-    const changeCharacterImage = (imageURL) => { characterImage.style.backgroundImage = `url("${imageURL}")`; };
     const typewriterEffect = (text, speed = 40) => { return new Promise((resolve) => { answerBox.innerHTML = ''; answerBox.classList.add('typing'); let i = 0; const type = () => { if (i < text.length) { answerBox.textContent += text.charAt(i); i++; answerBox.scrollTop = answerBox.scrollHeight; setTimeout(type, speed); } else { answerBox.classList.remove('typing'); resolve(); } }; type(); }); };
     const speak = (text) => { window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); const voices = window.speechSynthesis.getVoices(); utterance.voice = voices.find(voice => voice.lang === 'ja-JP') || voices[0]; utterance.rate = 1.0; utterance.pitch = 1.1; window.speechSynthesis.speak(utterance); };
     const toggleAppDrawer = () => { appDrawer.classList.toggle('visible'); };
-    
+
     // --- 【ここから顔認証機能】 ---
-    
-    // 1. 顔認証のモデル（AI）を読み込む関数
+
+    // モデルを読み込む関数
     async function loadFaceApiModels() {
         await typewriterEffect("AIモデルを準備中...");
         await Promise.all([
@@ -45,8 +41,28 @@ document.addEventListener('DOMContentLoaded', () => {
             faceapi.nets.faceRecognitionNet.loadFromUri('/models')
         ]);
     }
+    
+    // サーバーから全ユーザーの顔データを取得し、FaceMatcherを作成する関数
+    async function createFaceMatcherFromServer() {
+        try {
+            const response = await fetch('/get-all-users');
+            if (!response.ok) return null;
+            const users = await response.json();
+            if (users.length === 0) return null;
 
-    // 2. 顔認証を開始するメインの関数
+            const labeledFaceDescriptors = users.map(user => {
+                const descriptor = new Float32Array(user.faceDescriptor);
+                return new faceapi.LabeledFaceDescriptors(user.name, [descriptor]);
+            });
+            
+            return new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5);
+        } catch (error) {
+            console.error("サーバーからのユーザーデータ取得に失敗:", error);
+            return null;
+        }
+    }
+    
+    // 顔認証を開始するメインの関数
     async function startFaceRecognition() {
         await typewriterEffect("カメラを起動します...");
         try {
@@ -57,20 +73,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             await typewriterEffect("カメラの起動に失敗しました。通常モードで起動します。");
             speak("カメラが使えませんでした。");
-            fallbackToNormalStart(); // 通常起動に切り替え
+            fallbackToNormalStart();
             return;
         }
 
-        const savedUserJSON = localStorage.getItem('pal_user_data');
-        const faceMatcher = savedUserJSON ? await createFaceMatcher(savedUserJSON) : null;
+        const faceMatcher = await createFaceMatcherFromServer();
 
         await typewriterEffect(faceMatcher ? "あなたを認識しています..." : "こんにちは！顔を登録します。カメラに顔を写してください。");
 
         const recognitionInterval = setInterval(async () => {
-            if (cameraView.readyState < 3) return; // カメラの準備ができるまで待つ
+            if (cameraView.readyState < 3) return;
 
             const detections = await faceapi.detectSingleFace(cameraView, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-
+            
             if (detections) {
                 clearInterval(recognitionInterval);
 
@@ -91,15 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 500);
     }
-    
-    // 照合器を作成する関数
-    async function createFaceMatcher(json) {
-        const userData = JSON.parse(json);
-        const descriptorArray = Object.values(userData.descriptor);
-        const descriptor = new Float32Array(descriptorArray);
-        const labeledDescriptor = new faceapi.LabeledFaceDescriptors(userData.name, [descriptor]);
-        return new faceapi.FaceMatcher(labeledDescriptor, 0.5); 
-    }
 
     // 新規ユーザー登録の準備をする関数
     async function registerNewUser(descriptor) {
@@ -118,38 +124,52 @@ document.addEventListener('DOMContentLoaded', () => {
         faceCanvas.style.display = 'none';
         characterImage.style.display = 'block';
     }
-
+    
     // --- 【顔認証機能ここまで】 ---
 
-    // --- API連携・アプリ機能（元のコード） ---
-    
-    // 送信ボタンが押されたときの処理を分岐させる
+    // --- API連携・アプリ機能 ---
+
+    // 送信ボタンの処理
     const handleSendClick = async () => {
         const inputText = questionInput.value;
 
         if (isRegisteringFace) {
             const userName = inputText.trim();
             if (userName && capturedDescriptor) {
-                const userData = {
-                    name: userName,
-                    descriptor: Array.from(capturedDescriptor)
-                };
-                localStorage.setItem('pal_user_data', JSON.stringify(userData));
-                
-                isRegisteringFace = false;
-                capturedDescriptor = null;
                 questionInput.value = '';
+                await typewriterEffect("データベースに登録しています...");
+                
+                // ▼▼▼ サーバーに顔と名前を送信 ▼▼▼
+                try {
+                    const response = await fetch('/register-face', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: userName,
+                            descriptor: Array.from(capturedDescriptor)
+                        })
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error);
 
-                const message = `${userName}さん、覚えました！これからよろしくお願いします。`;
-                await typewriterEffect(message);
-                speak(message);
-                turnOffCamera();
+                    isRegisteringFace = false;
+                    capturedDescriptor = null;
+                    
+                    const message = `${userName}さん、覚えました！これからよろしくお願いします。`;
+                    await typewriterEffect(message);
+                    speak(message);
+                    turnOffCamera();
+
+                } catch (error) {
+                    await typewriterEffect("登録に失敗しました。もう一度お名前を教えてください。");
+                    speak("ごめんなさい、エラーで登録できませんでした。");
+                }
             }
         } else {
             await askDify(inputText);
         }
     };
-
+    
     const askDify = async (question) => {
         if (!question.trim()) return;
         questionInput.value = '';
@@ -193,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const getWeather = async () => { await typewriterEffect("東京の天気を調べています..."); try { const response = await fetch('/weather', {method: 'POST'}); const data = await response.json(); if (!response.ok) throw new Error(data.error || "天気情報の取得に失敗しました。"); const text = `現在の東京の天気は「${data.weather[0].description}」、気温は${Math.round(data.main.temp)}℃です。`; await typewriterEffect(text); speak(text); } catch (error) { await typewriterEffect(error.message); speak("ごめんなさい、天気情報を取得できませんでした。"); } };
     const searchGoogle = async () => { const query = prompt("🔎 何を調べますか？"); if (!query || !query.trim()) return; await typewriterEffect(`「${query}」について調べています...`); try { const response = await fetch('/google-search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || "検索に失敗しました。"); if (!data.items || data.items.length === 0) { await typewriterEffect(`「${query}」に関する情報は見つかりませんでした。`); speak("情報が見つかりませんでした。"); return; } const snippet = data.items[0].snippet.replace(/\n/g, ''); const text = `「${query}」の検索結果です。 ${snippet}`; await typewriterEffect(text); speak(text); } catch (error) { await typewriterEffect(error.message); speak("ごめんなさい、検索中にエラーが起きました。"); } };
-    const handleCamera = async () => { const cameraIcon = document.querySelector('[data-app="camera"] .app-icon-symbol'); if (isCameraOn) { const context = imageCanvas.getContext('2d'); imageCanvas.width = cameraView.videoWidth; imageCanvas.height = cameraView.videoHeight; context.drawImage(cameraView, 0, 0, imageCanvas.width, imageCanvas.height); const base64 = imageCanvas.toDataURL('image/jpeg').split(',')[1]; if (cameraView.srcObject) cameraView.srcObject.getTracks().forEach(track => track.stop()); cameraView.style.display = 'none'; characterImage.style.display = 'block'; isCameraOn = false; cameraIcon.textContent = '📷'; await typewriterEffect("画像を解析しています..."); try { const response = await fetch('/image-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64: base64 }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || '解析サーバーでエラーが発生しました。'); const topConcept = data.outputs[0].data.concepts[0]; const text = `これは「${topConcept.name}」ですね！`; await typewriterEffect(text); speak(text); } catch (error) { await typewriterEffect(error.message); speak("ごめんなさい、うまく解析できませんでした。"); } } else { await typewriterEffect("カメラを起動します..."); try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); cameraView.srcObject = stream; cameraView.style.display = 'block'; characterImage.style.display = 'none'; isCameraOn = true; cameraIcon.textContent = '📸'; await typewriterEffect("スクリーンをタップして撮影します。"); cameraView.onclick = () => handleCamera(); } catch (error) { await typewriterEffect("カメラの起動に失敗しました。"); speak("カメラが使えませんでした。"); } } };
+    const handleCamera = async () => { const cameraIcon = document.querySelector('[data-app="camera"] .app-icon-symbol'); if (isCameraOn) { const context = faceCanvas.getContext('2d'); faceCanvas.width = cameraView.videoWidth; faceCanvas.height = cameraView.videoHeight; context.drawImage(cameraView, 0, 0, faceCanvas.width, faceCanvas.height); const base64 = faceCanvas.toDataURL('image/jpeg').split(',')[1]; if (cameraView.srcObject) cameraView.srcObject.getTracks().forEach(track => track.stop()); cameraView.style.display = 'none'; characterImage.style.display = 'block'; isCameraOn = false; cameraIcon.textContent = '📷'; await typewriterEffect("画像を解析しています..."); try { const response = await fetch('/image-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64: base64 }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || '解析サーバーでエラーが発生しました。'); const topConcept = data.outputs[0].data.concepts[0]; const text = `これは「${topConcept.name}」ですね！`; await typewriterEffect(text); speak(text); } catch (error) { await typewriterEffect(error.message); speak("ごめんなさい、うまく解析できませんでした。"); } } else { await typewriterEffect("カメラを起動します..."); try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); cameraView.srcObject = stream; cameraView.style.display = 'block'; characterImage.style.display = 'none'; isCameraOn = true; cameraIcon.textContent = '📸'; await typewriterEffect("スクリーンをタップして撮影します。"); cameraView.onclick = () => handleCamera(); } catch (error) { await typewriterEffect("カメラの起動に失敗しました。"); speak("カメラが使えませんでした。"); } } };
     const handleVoiceInput = () => { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { typewriterEffect("お使いのブラウザは音声入力に対応していません。"); return; } const recognition = new SpeechRecognition(); recognition.lang = 'ja-JP'; recognition.onstart = () => { typewriterEffect("話しかけてください..."); }; recognition.onresult = (event) => { const spokenText = event.results[0][0].transcript; questionInput.value = spokenText; askDify(spokenText); }; recognition.onerror = (event) => { typewriterEffect("うまく聞き取れませんでした。"); }; try { recognition.start(); } catch (e) { typewriterEffect("音声認識を開始できませんでした。"); } };
     const handleTranscriptionUpload = async (file) => { await typewriterEffect("ファイルを解析・文字起こし中..."); const formData = new FormData(); formData.append('audio', file); try { const response = await fetch('/audio-transcript', { method: 'POST', body: formData }); const data = await response.json(); if (!response.ok) throw new Error(data.error || '文字起こしに失敗しました。'); let transcriptText = "【文字起こし結果】\n\n"; if (data.utterances && data.utterances.length > 0) { data.utterances.forEach(utterance => { transcriptText += `話者 ${utterance.speaker}: ${utterance.text}\n`; }); } else { transcriptText += data.text; } if (data.sentiment_analysis_results && data.sentiment_analysis_results.length > 0) { const sentiment = data.sentiment_analysis_results[0].sentiment; transcriptText += `\n\n【全体の感情: ${sentiment}】`; } await typewriterEffect(transcriptText); speak("文字起こしが完了しました。"); } catch (error) { await typewriterEffect(error.message); speak("ファイルの文字起こしに失敗しました。"); } };
     const handleSaveMemory = async () => { await typewriterEffect("今日の会話を記憶しています..."); try { const response = await fetch('/end-conversation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'pal-user-01' }) }); const data = await response.json(); await typewriterEffect(data.message); speak(data.message); } catch (error) { await typewriterEffect("記憶中にエラーが発生しました。"); speak("うまく記憶できませんでした。"); } };
@@ -203,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- イベントリスナー設定 ---
     appLauncherButton.addEventListener('click', toggleAppDrawer);
-    sendButton.addEventListener('click', handleSendClick); // 呼び出す関数を変更
+    sendButton.addEventListener('click', handleSendClick);
     questionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendClick(); } });
     
     appIcons.forEach(icon => {
@@ -212,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
             switch (icon.dataset.app) {
                 case 'weather': getWeather(); break;
                 case 'google': searchGoogle(); break;
-                case 'camera': handleCamera(); break; // 元のカメラ機能も残しておきます
+                case 'camera': handleCamera(); break;
                 case 'mic': handleVoiceInput(); break;
                 case 'transcribe': audioFileInput.click(); break;
                 case 'reminder': if (isIPhone) addReminder(); else typewriterEffect("この機能はiPhoneでの利用を想定しています。"); break;
