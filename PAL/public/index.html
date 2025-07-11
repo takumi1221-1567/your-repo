@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>パル Personal Terminal</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+    
     <style>
         /* ページ全体の背景 */
         body {
@@ -60,8 +63,9 @@
             background-repeat: no-repeat;
             animation: breathing 5s ease-in-out infinite, blink-animation 3s step-end infinite;
         }
-
-        #camera-view, #image-canvas { 
+        
+        /* ▼▼▼【変更】カメラ映像と顔検出用のcanvasを重ねて表示します ▼▼▼ */
+        #camera-view, #face-canvas { 
             position: absolute;
             top: 0;
             left: 0;
@@ -70,6 +74,11 @@
             object-fit: cover;
             display: none; 
             z-index: 5;
+        }
+
+        /* canvas要素は反転させます */
+        #face-canvas {
+            transform: scaleX(-1);
         }
 
         /* 入力/回答エリア */
@@ -216,8 +225,9 @@
 <body>
     <div class="pet-body">
         <div class="pet-screen">
-            <video id="camera-view" autoplay playsinline></video>
-            <canvas id="image-canvas"></canvas>
+            <video id="camera-view" autoplay playsinline muted></video>
+            <canvas id="face-canvas"></canvas>
+            
             <div id="character-image"></div>
             
             <div id="app-drawer">
