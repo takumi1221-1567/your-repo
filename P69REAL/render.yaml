@@ -1,0 +1,164 @@
+# ============================================
+# P69REAL - AI秘書ロックマン
+# Render デプロイ設定
+# ============================================
+
+services:
+  # Web サービス（Node.js アプリケーション）
+  - type: web
+    name: p69real-rockman
+    env: node
+    region: singapore
+    plan: free
+
+    # ビルド設定
+    buildCommand: npm install
+    startCommand: npm start
+
+    # ヘルスチェック
+    healthCheckPath: /api/health
+
+    # 環境変数（Render ダッシュボードで設定してください）
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 3000
+
+      # Gemini API
+      - key: GEMINI_API_KEY
+        sync: false  # Render ダッシュボードで手動設定
+
+      # MongoDB
+      - key: MONGODB_URI
+        sync: false  # Render ダッシュボードで手動設定
+
+      - key: MONGODB_DB_NAME
+        value: rockman_memory
+
+      # LINE API
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false  # Render ダッシュボードで手動設定
+
+      - key: LINE_CHANNEL_SECRET
+        sync: false  # Render ダッシュボードで手動設定
+
+      # Slack API
+      - key: SLACK_BOT_TOKEN
+        sync: false  # Render ダッシュボードで手動設定
+
+      - key: SLACK_SIGNING_SECRET
+        sync: false  # Render ダッシュボードで手動設定
+
+      # X (Twitter) API
+      - key: X_API_KEY
+        sync: false  # Render ダッシュボードで手動設定
+
+      - key: X_API_SECRET
+        sync: false  # Render ダッシュボードで手動設定
+
+      - key: X_ACCESS_TOKEN
+        sync: false  # Render ダッシュボードで手動設定
+
+      - key: X_ACCESS_SECRET
+        sync: false  # Render ダッシュボードで手動設定
+
+      - key: X_BEARER_TOKEN
+        sync: false  # Render ダッシュボードで手動設定
+
+      # 駅すぱあと API
+      - key: EKISPERT_API_KEY
+        sync: false  # Render ダッシュボードで手動設定
+
+      # セキュリティ
+      - key: SESSION_SECRET
+        generateValue: true  # 自動生成
+
+      - key: CASTOFF_PASSWORD
+        value: "214200"
+
+      # ニュース配信設定
+      - key: NEWS_SCHEDULE_HOURS
+        value: "9,12,15,18"
+
+      # CORS
+      - key: ALLOWED_ORIGINS
+        value: https://p69real-rockman.onrender.com
+
+      # ログレベル
+      - key: LOG_LEVEL
+        value: info
+
+      # タイムゾーン
+      - key: TZ
+        value: Asia/Tokyo
+
+    # 自動デプロイ設定
+    autoDeploy: true
+
+    # ブランチ指定
+    branch: main
+
+    # ルートディレクトリ
+    rootDir: P69REAL
+
+# ============================================
+# デプロイ手順（README）
+# ============================================
+#
+# 1. GitHub リポジトリを準備
+#    - このプロジェクトをGitHubにプッシュ
+#
+# 2. Render アカウント作成
+#    - https://render.com でアカウント作成
+#
+# 3. 新しいWebサービスを作成
+#    - "New" → "Web Service"
+#    - GitHubリポジトリを接続
+#    - "P69REAL" フォルダを選択
+#
+# 4. 環境変数を設定
+#    - Render ダッシュボードで以下を設定：
+#      ✓ GEMINI_API_KEY
+#      ✓ MONGODB_URI
+#      ✓ LINE_CHANNEL_ACCESS_TOKEN (オプション)
+#      ✓ LINE_CHANNEL_SECRET (オプション)
+#      ✓ SLACK_BOT_TOKEN (オプション)
+#      ✓ SLACK_SIGNING_SECRET (オプション)
+#      ✓ X_API_KEY (オプション)
+#      ✓ X_API_SECRET (オプション)
+#      ✓ X_ACCESS_TOKEN (オプション)
+#      ✓ X_ACCESS_SECRET (オプション)
+#      ✓ EKISPERT_API_KEY (オプション)
+#
+# 5. デプロイ実行
+#    - "Create Web Service" をクリック
+#    - 自動でビルド＆デプロイが開始されます
+#
+# 6. 動画ファイルのアップロード
+#    - デプロイ後、動画ファイルを配置
+#    - 方法1: Render Shell で直接アップロード
+#    - 方法2: 外部ストレージ（S3等）を使用
+#
+# 7. アクセス
+#    - https://p69real-rockman.onrender.com
+#
+# ============================================
+# 注意事項
+# ============================================
+#
+# ⚠️ 無料プランの制限:
+#    - 15分間アクセスがないとスリープします
+#    - 初回アクセス時に起動に時間がかかります
+#    - 月間750時間まで無料
+#
+# 💾 動画ファイルについて:
+#    - Renderの無料プランではファイルが永続化されません
+#    - S3やCloudinaryなどの外部ストレージ推奨
+#
+# 🔒 セキュリティ:
+#    - APIキーは必ず環境変数で設定
+#    - .env ファイルは絶対にコミットしない
+#
+# ============================================
