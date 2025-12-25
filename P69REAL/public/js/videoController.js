@@ -90,13 +90,14 @@ class VideoController {
     // ============================================
     // 動画読み込み
     // ============================================
-    async loadVideo(videoPath, autoplay = true) {
+    async loadVideo(videoPath, autoplay = true, loop = true) {
         return new Promise((resolve, reject) => {
             // ローディング表示
             this.showLoading();
 
             // 動画ソース設定
             this.videoElement.src = videoPath;
+            this.videoElement.loop = loop;
             this.videoElement.load();
 
             // 読み込み完了時
@@ -123,6 +124,14 @@ class VideoController {
     // スムーズな動画切り替え（暗転なし）
     // ============================================
     async switchVideo(videoPath, loop = true) {
+        // 同じ動画の場合は何もしない（暗転防止）
+        if (this.videoElement.src.endsWith(videoPath)) {
+            console.log('🎬 同じ動画なのでスキップ:', videoPath);
+            // ループ設定だけ更新
+            this.videoElement.loop = loop;
+            return Promise.resolve();
+        }
+
         // 新しい動画を事前読み込み
         const tempVideo = document.createElement('video');
         tempVideo.src = videoPath;
@@ -133,24 +142,35 @@ class VideoController {
 
         return new Promise((resolve) => {
             tempVideo.onloadeddata = async () => {
-                // 現在の動画を一時停止
-                this.videoElement.pause();
-
-                // ソースを切り替え
+                // ソースを切り替え（load()を呼ばずに直接設定）
                 this.videoElement.src = videoPath;
                 this.videoElement.loop = loop;
-                this.videoElement.load();
 
-                // 即座に再生
+                // currentTimeを0にリセット
+                this.videoElement.currentTime = 0;
+
+                // 即座に再生（load()なしでもautoplayで再生される）
                 try {
                     await this.videoElement.play();
                     console.log('🎬 動画切り替え:', videoPath);
                     resolve();
                 } catch (err) {
                     console.error('再生エラー:', err);
+                    // エラー時のみload()を呼ぶ
+                    this.videoElement.load();
+                    this.videoElement.play().catch(() => {});
                     resolve();
                 }
             };
+
+            // タイムアウト処理（5秒以内にロードできない場合）
+            setTimeout(() => {
+                console.warn('⚠️ 動画読み込みタイムアウト、強制切り替え');
+                this.videoElement.src = videoPath;
+                this.videoElement.loop = loop;
+                this.videoElement.play().catch(() => {});
+                resolve();
+            }, 5000);
         });
     }
 
