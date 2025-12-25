@@ -151,7 +151,13 @@
 #### EKISPERT_API_KEY
 ```
 キー名（正確にコピー）: EKISPERT_API_KEY
-値: あなたの駅すぱあとAPIキー
+値: あなたの駅すぱあと API フリープラン環境のアクセスキー
+```
+
+#### EKISPERT_ROUTE_MAP_KEY
+```
+キー名（正確にコピー）: EKISPERT_ROUTE_MAP_KEY
+値: あなたの駅すぱあと路線図 フリープラン環境のアクセスキー
 ```
 
 ---
@@ -233,6 +239,7 @@ Value: AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 - [ ] `X_ACCESS_SECRET`
 - [ ] `X_BEARER_TOKEN`
 - [ ] `EKISPERT_API_KEY`
+- [ ] `EKISPERT_ROUTE_MAP_KEY`
 
 ---
 

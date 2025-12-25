@@ -167,14 +167,21 @@ X_BEARER_TOKEN=YOUR_X_BEARER_TOKEN_HERE
 **取得方法：**
 
 1. https://ekispert.com/ にアクセス
-2. 開発者向けAPIに申し込み
-3. APIキーを取得
+2. 「駅すぱあとWebサービス フリープラン」に申し込み
+3. 「駅すぱあと API フリープラン環境」のアクセスキーを取得
+4. 「駅すぱあと路線図 フリープラン環境」のアクセスキーも取得（路線図表示用）
 
 **記載例：**
 
 ```env
-EKISPERT_API_KEY=your_ekispert_api_key_here
+# 駅すぱあと API フリープラン環境のアクセスキー
+EKISPERT_API_KEY=ここに駅すぱあとAPIのアクセスキーを記載
+
+# 駅すぱあと路線図 フリープラン環境のアクセスキー
+EKISPERT_ROUTE_MAP_KEY=ここに駅すぱあと路線図のアクセスキーを記載
 ```
+
+⚠️ 2つのアクセスキーは別々です。それぞれ正しく記載してください
 
 ---
 
@@ -282,6 +289,7 @@ X_BEARER_TOKEN=YOUR_X_BEARER_TOKEN_HERE
 
 # 駅すぱあと API（オプション）
 EKISPERT_API_KEY=your_ekispert_api_key_here
+EKISPERT_ROUTE_MAP_KEY=your_ekispert_route_map_key_here
 
 # キャストオフパスワード
 CASTOFF_PASSWORD=214200

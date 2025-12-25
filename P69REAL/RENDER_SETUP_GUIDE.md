@@ -180,7 +180,10 @@ GitHubから `takumi1221-1567/your-repo` を選択して「Connect」
 #### 駅すぱあと API
 ```
 キー: EKISPERT_API_KEY
-値: （あなたの駅すぱあとAPIキー）
+値: （あなたの駅すぱあと API フリープラン環境のアクセスキー）
+
+キー: EKISPERT_ROUTE_MAP_KEY
+値: （あなたの駅すぱあと路線図 フリープラン環境のアクセスキー）
 ```
 
 ---
