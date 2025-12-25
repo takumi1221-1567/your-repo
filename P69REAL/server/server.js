@@ -110,9 +110,6 @@ app.use(session({
 // 静的ファイルの配信（public フォルダ）
 app.use(express.static(path.join(__dirname, '../public')));
 
-// 動画ファイルの配信（videos フォルダ）
-app.use('/videos', express.static(path.join(__dirname, '../videos')));
-
 // ログミドルウェア
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -132,6 +129,41 @@ app.get('/api/health', (req, res) => {
         message: 'P69REAL API is running',
         timestamp: new Date().toISOString()
     });
+});
+
+// --------------------------------------------
+// 動画設定取得
+// --------------------------------------------
+app.get('/api/video-config', (req, res) => {
+    try {
+        const videoConfig = {
+            normal: {
+                idle: '/videos/normal/通常.mp4',
+                speaking: '/videos/normal/喋り.mp4',
+                idleAction1: '/videos/normal/腕組み.mp4',
+                idleAction2: '/videos/normal/キョロ.mp4',
+                changeReply: '/videos/normal/チェンジ.mp4'
+            },
+            armor: {
+                idle: '/videos/armor/装甲通常.mp4',
+                speaking: '/videos/armor/装甲通常.mp4',
+                idleAction1: '/videos/armor/装甲腕組み.mp4',
+                idleAction2: '/videos/armor/装甲キョロ.mp4',
+                castoffReply: '/videos/armor/キャストオフ.mp4'
+            }
+        };
+
+        res.json({
+            success: true,
+            config: videoConfig
+        });
+    } catch (error) {
+        console.error('❌ 動画設定取得エラー:', error);
+        res.status(500).json({
+            success: false,
+            error: '動画設定の取得に失敗しました'
+        });
+    }
 });
 
 // --------------------------------------------

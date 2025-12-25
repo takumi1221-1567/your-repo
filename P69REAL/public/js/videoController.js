@@ -24,18 +24,18 @@ class VideoController {
         // 動画パス（videoConfig.jsから取得）
         this.videoPaths = {
             normal: {
-                idle: 'public/videos/normal/通常.mp4',
-                speaking: 'public/videos/normal/喋り.mp4',
-                idleAction1: 'public/videos/normal/腕組み.mp4',
-                idleAction2: 'public/videos/normal/キョロ.mp4',
-                changeReply: 'public/videos/normal/チェンジ.mp4'
+                idle: '/videos/normal/通常.mp4',
+                speaking: '/videos/normal/喋り.mp4',
+                idleAction1: '/videos/normal/腕組み.mp4',
+                idleAction2: '/videos/normal/キョロ.mp4',
+                changeReply: '/videos/normal/チェンジ.mp4'
             },
             armor: {
-                idle: 'public/videos/armor/装甲通常.mp4',
-                speaking: 'public/videos/armor/装甲通常.mp4',
-                idleAction1: 'public/videos/armor/装甲腕組み.mp4',
-                idleAction2: 'public/videos/armor/装甲キョロ.mp4',
-                castoffReply: 'public/videos/armor/キャストオフ.mp4'
+                idle: '/videos/armor/装甲通常.mp4',
+                speaking: '/videos/armor/装甲通常.mp4',
+                idleAction1: '/videos/armor/装甲腕組み.mp4',
+                idleAction2: '/videos/armor/装甲キョロ.mp4',
+                castoffReply: '/videos/armor/キャストオフ.mp4'
             }
         };
 
