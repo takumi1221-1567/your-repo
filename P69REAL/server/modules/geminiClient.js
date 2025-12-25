@@ -9,7 +9,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // 設定
 // ============================================
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL_NAME = 'gemini-1.5-flash'; // 最新の高速モデル（gemini-1.5-pro も利用可能）
+// 環境変数でモデル名を指定可能（デフォルト: gemini-2.5-flash）
+const MODEL_NAME = process.env.GEMINI_MODEL_NAME || 'gemini-2.5-flash';
 
 // ============================================
 // Gemini クライアント初期化
@@ -20,7 +21,7 @@ let model = null;
 if (GEMINI_API_KEY) {
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     model = genAI.getGenerativeModel({ model: MODEL_NAME });
-    console.log('✅ Gemini API クライアント初期化完了');
+    console.log(`✅ Gemini API クライアント初期化完了 (モデル: ${MODEL_NAME})`);
 } else {
     console.warn('⚠️ GEMINI_API_KEY が設定されていません');
 }
