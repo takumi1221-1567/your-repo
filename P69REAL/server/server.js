@@ -16,6 +16,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const path = require('path');
+const crypto = require('crypto');
 
 // ============================================
 // カスタムモジュールのインポート
@@ -445,6 +446,271 @@ app.post('/api/mcp', async (req, res) => {
             error: 'MCP実行に失敗しました',
             details: error.message
         });
+    }
+});
+
+// --------------------------------------------
+// X 連携状態確認
+// --------------------------------------------
+app.get('/api/x/status', (req, res) => {
+    try {
+        const connected = !!(req.session && req.session.xAccessToken);
+
+        res.json({
+            success: true,
+            connected: connected,
+            username: req.session?.xUsername || null
+        });
+
+    } catch (error) {
+        console.error('❌ X連携状態確認エラー:', error);
+        res.status(500).json({
+            success: false,
+            error: '連携状態の確認に失敗しました'
+        });
+    }
+});
+
+// --------------------------------------------
+// X OAuth認証開始
+// --------------------------------------------
+app.get('/auth/x', async (req, res) => {
+    try {
+        const X_CLIENT_ID = process.env.X_CLIENT_ID;
+        const X_CALLBACK_URL = process.env.X_CALLBACK_URL || 'http://localhost:3000/auth/x/callback';
+
+        if (!X_CLIENT_ID) {
+            return res.status(500).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>X連携エラー</title>
+                </head>
+                <body style="font-family: sans-serif; padding: 20px; background: #000; color: #fff;">
+                    <h1>X API 設定エラー</h1>
+                    <p>X_CLIENT_ID が設定されていません。</p>
+                    <p>.env ファイルまたは Render の Environment Variables で設定してください。</p>
+                    <a href="/" style="color: #1DA1F2;">アプリに戻る</a>
+                </body>
+                </html>
+            `);
+        }
+
+        // PKCE用のcode_verifierとcode_challengeを生成
+        const codeVerifier = crypto.randomBytes(32).toString('base64url');
+        const codeChallenge = crypto
+            .createHash('sha256')
+            .update(codeVerifier)
+            .digest('base64url');
+
+        // セッションに保存
+        req.session.codeVerifier = codeVerifier;
+
+        // OAuth認証URLを構築
+        const authUrl = new URL('https://twitter.com/i/oauth2/authorize');
+        authUrl.searchParams.append('response_type', 'code');
+        authUrl.searchParams.append('client_id', X_CLIENT_ID);
+        authUrl.searchParams.append('redirect_uri', X_CALLBACK_URL);
+        authUrl.searchParams.append('scope', 'tweet.read tweet.write users.read offline.access');
+        authUrl.searchParams.append('state', crypto.randomBytes(16).toString('hex'));
+        authUrl.searchParams.append('code_challenge', codeChallenge);
+        authUrl.searchParams.append('code_challenge_method', 'S256');
+
+        console.log('🔗 X OAuth認証開始:', authUrl.toString());
+
+        // X認証ページにリダイレクト
+        res.redirect(authUrl.toString());
+
+    } catch (error) {
+        console.error('❌ X OAuth認証開始エラー:', error);
+        res.status(500).send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>X連携エラー</title>
+            </head>
+            <body style="font-family: sans-serif; padding: 20px; background: #000; color: #fff;">
+                <h1>認証エラー</h1>
+                <p>X認証の開始に失敗しました。</p>
+                <p>${error.message}</p>
+                <a href="/" style="color: #1DA1F2;">アプリに戻る</a>
+            </body>
+            </html>
+        `);
+    }
+});
+
+// --------------------------------------------
+// X OAuth認証コールバック
+// --------------------------------------------
+app.get('/auth/x/callback', async (req, res) => {
+    try {
+        const { code } = req.query;
+        const codeVerifier = req.session.codeVerifier;
+
+        if (!code || !codeVerifier) {
+            throw new Error('認証コードまたはcode_verifierが見つかりません');
+        }
+
+        const X_CLIENT_ID = process.env.X_CLIENT_ID;
+        const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET;
+        const X_CALLBACK_URL = process.env.X_CALLBACK_URL || 'http://localhost:3000/auth/x/callback';
+
+        // アクセストークンを取得
+        const tokenResponse = await fetch('https://api.twitter.com/2/oauth2/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': 'Basic ' + Buffer.from(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`).toString('base64')
+            },
+            body: new URLSearchParams({
+                code: code,
+                grant_type: 'authorization_code',
+                client_id: X_CLIENT_ID,
+                redirect_uri: X_CALLBACK_URL,
+                code_verifier: codeVerifier
+            })
+        });
+
+        const tokenData = await tokenResponse.json();
+
+        if (!tokenResponse.ok) {
+            throw new Error(`トークン取得失敗: ${JSON.stringify(tokenData)}`);
+        }
+
+        // アクセストークンをセッションに保存
+        req.session.xAccessToken = tokenData.access_token;
+        req.session.xRefreshToken = tokenData.refresh_token;
+
+        // ユーザー情報を取得
+        const userResponse = await fetch('https://api.twitter.com/2/users/me', {
+            headers: {
+                'Authorization': `Bearer ${tokenData.access_token}`
+            }
+        });
+
+        const userData = await userResponse.json();
+
+        if (userResponse.ok && userData.data) {
+            req.session.xUsername = userData.data.username;
+        }
+
+        console.log('✅ X OAuth認証成功:', userData.data?.username || 'Unknown');
+
+        // アプリに戻る（自動的にリダイレクト）
+        res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>X連携完了</title>
+                <style>
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                        background: #000;
+                        color: #fff;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                    }
+                    .container {
+                        text-align: center;
+                    }
+                    .checkmark {
+                        width: 80px;
+                        height: 80px;
+                        border-radius: 50%;
+                        display: block;
+                        stroke-width: 2;
+                        stroke: #1DA1F2;
+                        stroke-miterlimit: 10;
+                        margin: 0 auto 20px;
+                        box-shadow: inset 0px 0px 0px #1DA1F2;
+                        animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
+                    }
+                    .checkmark__circle {
+                        stroke-dasharray: 166;
+                        stroke-dashoffset: 166;
+                        stroke-width: 2;
+                        stroke-miterlimit: 10;
+                        stroke: #1DA1F2;
+                        fill: none;
+                        animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+                    }
+                    .checkmark__check {
+                        transform-origin: 50% 50%;
+                        stroke-dasharray: 48;
+                        stroke-dashoffset: 48;
+                        animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+                    }
+                    @keyframes stroke {
+                        100% {
+                            stroke-dashoffset: 0;
+                        }
+                    }
+                    @keyframes scale {
+                        0%, 100% {
+                            transform: none;
+                        }
+                        50% {
+                            transform: scale3d(1.1, 1.1, 1);
+                        }
+                    }
+                    @keyframes fill {
+                        100% {
+                            box-shadow: inset 0px 0px 0px 30px #1DA1F2;
+                        }
+                    }
+                    h1 {
+                        font-size: 24px;
+                        margin-bottom: 10px;
+                    }
+                    p {
+                        color: #888;
+                        font-size: 14px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                        <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                        <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                    </svg>
+                    <h1>X連携完了</h1>
+                    <p>自動的にアプリに戻ります...</p>
+                </div>
+                <script>
+                    // 2秒後に自動的にアプリに戻る
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                </script>
+            </body>
+            </html>
+        `);
+
+    } catch (error) {
+        console.error('❌ X OAuth認証コールバックエラー:', error);
+        res.status(500).send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>X連携エラー</title>
+            </head>
+            <body style="font-family: sans-serif; padding: 20px; background: #000; color: #fff;">
+                <h1>認証失敗</h1>
+                <p>X認証に失敗しました。</p>
+                <p>${error.message}</p>
+                <a href="/" style="color: #1DA1F2;">アプリに戻る</a>
+            </body>
+            </html>
+        `);
     }
 });
 

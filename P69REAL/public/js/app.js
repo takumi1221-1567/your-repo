@@ -31,6 +31,10 @@ const modeText = document.getElementById('mode-text');
 const statusIndicator = document.getElementById('status-indicator');
 const statusText = document.getElementById('status-text');
 
+// X連携ボタン
+const xConnectButton = document.getElementById('x-connect-button');
+const xConnectText = document.getElementById('x-connect-text');
+
 // パスワードモーダル
 const passwordModal = document.getElementById('password-modal');
 const passwordInput = document.getElementById('password-input');
@@ -67,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初期モード設定
     setMode('armor');
+
+    // X連携状態を確認
+    checkXConnectionStatus();
 
     console.log('✅ P69REAL 起動完了');
 });
@@ -156,6 +163,9 @@ function setupEventListeners() {
 
     // マイクボタン
     micButton.addEventListener('click', toggleRecording);
+
+    // X連携ボタン
+    xConnectButton.addEventListener('click', handleXConnect);
 
     // パスワードモーダル
     passwordSubmit.addEventListener('click', handlePasswordSubmit);
@@ -585,11 +595,56 @@ function closeModal(modal) {
 }
 
 // ============================================
+// X連携関連
+// ============================================
+
+/**
+ * X連携状態を確認
+ */
+async function checkXConnectionStatus() {
+    try {
+        const response = await fetch('/api/x/status');
+        const data = await response.json();
+
+        if (data.connected) {
+            // 連携済み
+            xConnectButton.classList.add('connected');
+            xConnectText.textContent = '連携済';
+            console.log('✅ X アカウント連携済み');
+        } else {
+            // 未連携
+            xConnectButton.classList.remove('connected');
+            xConnectText.textContent = 'X連携';
+            console.log('⚠️ X アカウント未連携');
+        }
+    } catch (error) {
+        console.error('❌ X連携状態の確認エラー:', error);
+    }
+}
+
+/**
+ * X連携ボタンクリック処理
+ */
+function handleXConnect() {
+    console.log('🔗 X連携開始');
+
+    // 連携済みの場合は何もしない
+    if (xConnectButton.classList.contains('connected')) {
+        speak('すでにXアカウントと連携しています');
+        return;
+    }
+
+    // OAuth認証画面にリダイレクト
+    window.location.href = '/auth/x';
+}
+
+// ============================================
 // エクスポート（グローバル）
 // ============================================
 window.app = {
     handleUserInput,
     speak,
     setMode,
-    currentMode
+    currentMode,
+    checkXConnectionStatus
 };
