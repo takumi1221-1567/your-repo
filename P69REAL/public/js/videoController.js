@@ -296,10 +296,13 @@ class VideoController {
         this.stopIdleTimer();
 
         const videoPath = this.videoPaths.normal.changeReply;
-        await this.switchVideo(videoPath, false);
 
         // 動画終了後に装甲モードの待機動画へ
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
+            // 先に動画切り替えを完了させる
+            await this.switchVideo(videoPath, false);
+
+            // 切り替え完了後のactiveVideoにイベントリスナーを追加
             const handleEnd = async () => {
                 this.activeVideo.removeEventListener('ended', handleEnd);
                 this.currentMode = 'armor';
@@ -319,10 +322,13 @@ class VideoController {
         this.stopIdleTimer();
 
         const videoPath = this.videoPaths.armor.castoffReply;
-        await this.switchVideo(videoPath, false);
 
         // 動画終了後に通常モードの待機動画へ
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
+            // 先に動画切り替えを完了させる
+            await this.switchVideo(videoPath, false);
+
+            // 切り替え完了後のactiveVideoにイベントリスナーを追加
             const handleEnd = async () => {
                 this.activeVideo.removeEventListener('ended', handleEnd);
                 this.currentMode = 'normal';
