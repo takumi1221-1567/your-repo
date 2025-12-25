@@ -391,18 +391,37 @@ app.get('/api/news', async (req, res) => {
             });
         }
 
-        // ニュースを整形してメッセージを作成
-        let message = '最新のAIニュースをお伝えします。\n\n';
-
+        // ニュース情報をテキストにまとめる
+        let newsText = '最新のAIニュース:\n\n';
         newsList.forEach((news, index) => {
-            message += `${index + 1}. ${news.source}: ${news.title}\n`;
+            newsText += `${index + 1}. ${news.source}: ${news.title}\n`;
             if (news.summary) {
-                message += `   ${news.summary}\n`;
+                newsText += `   ${news.summary}\n`;
             }
-            message += `\n`;
+            newsText += `\n`;
         });
 
-        message += 'これらのニュースについて、詳しく知りたいことはありますか？';
+        // Gemini APIでニュースを要約
+        console.log('🤖 Gemini APIでニュース要約中...');
+        const summaryPrompt = `以下の最新AIニュースを、ロックマンのキャラクターとして、わかりやすく簡潔に要約してください。重要なポイントを3〜5文でまとめてください。\n\n${newsText}`;
+
+        let message;
+        try {
+            const result = await geminiClient.chat(summaryPrompt, 'armor');
+            message = `最新のAIニュースをお伝えします！\n\n${result}\n\nこれらのニュースについて、もっと詳しく知りたいことはありますか？`;
+        } catch (summaryError) {
+            console.error('❌ ニュース要約エラー:', summaryError);
+            // 要約に失敗した場合は元の形式で返す
+            message = '最新のAIニュースをお伝えします。\n\n';
+            newsList.forEach((news, index) => {
+                message += `${index + 1}. ${news.source}: ${news.title}\n`;
+                if (news.summary) {
+                    message += `   ${news.summary}\n`;
+                }
+                message += `\n`;
+            });
+            message += 'これらのニュースについて、詳しく知りたいことはありますか？';
+        }
 
         res.json({
             success: true,
