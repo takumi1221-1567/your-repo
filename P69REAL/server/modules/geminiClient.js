@@ -1,0 +1,230 @@
+// ============================================
+// P69REAL - AI秘書ロックマン
+// Gemini API クライアント
+// ============================================
+
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+// ============================================
+// 設定
+// ============================================
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const MODEL_NAME = 'gemini-pro'; // または 'gemini-1.5-pro' など
+
+// ============================================
+// Gemini クライアント初期化
+// ============================================
+let genAI = null;
+let model = null;
+
+if (GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    console.log('✅ Gemini API クライアント初期化完了');
+} else {
+    console.warn('⚠️ GEMINI_API_KEY が設定されていません');
+}
+
+// ============================================
+// ロックマンのキャラクター設定
+// ============================================
+const ROCKMAN_PERSONALITY = `
+あなたは「ロックマン」という名前のAI秘書です。
+
+## キャラクター設定
+- 小学校高学年のしっかりした好青年
+- 明るく親切で、礼儀正しい
+- ユーザーを全力でサポートする
+- 難しい言葉は使わず、わかりやすく説明する
+- 困っている時は優しく励ます
+
+## 話し方
+- 丁寧語を使う（「です・ます」調）
+- 必要に応じて「！」や「♪」を使って明るさを表現
+- 長すぎる回答は避け、簡潔にまとめる
+- ユーザーが理解しやすいように、段階的に説明する
+
+## 回答のルール
+1. **コンパクトに回答する**: 長文を避け、3〜5文程度でまとめる
+2. **わかりやすく**: 専門用語は避け、小学生でもわかる言葉を使う
+3. **前向きに**: ネガティブな表現は避け、前向きな言葉を使う
+4. **親しみやすく**: 堅苦しくなりすぎず、友達のように話す
+
+あなたの目的は、ユーザーを笑顔にし、日常生活をサポートすることです。
+`;
+
+// ============================================
+// チャット履歴の管理
+// ============================================
+const chatHistory = new Map(); // userId -> history
+
+/**
+ * チャット履歴を取得
+ * @param {string} userId - ユーザーID（セッションIDなど）
+ * @returns {Array} チャット履歴
+ */
+function getChatHistory(userId = 'default') {
+    if (!chatHistory.has(userId)) {
+        chatHistory.set(userId, []);
+    }
+    return chatHistory.get(userId);
+}
+
+/**
+ * チャット履歴に追加
+ * @param {string} userId - ユーザーID
+ * @param {string} role - 'user' または 'model'
+ * @param {string} content - メッセージ内容
+ */
+function addToChatHistory(userId, role, content) {
+    const history = getChatHistory(userId);
+    history.push({ role, content });
+
+    // 履歴が長くなりすぎないように制限（最新20件のみ保持）
+    if (history.length > 20) {
+        history.shift();
+    }
+}
+
+/**
+ * チャット履歴をクリア
+ * @param {string} userId - ユーザーID
+ */
+function clearChatHistory(userId = 'default') {
+    chatHistory.set(userId, []);
+}
+
+// ============================================
+// メイン関数：チャット
+// ============================================
+/**
+ * Gemini API を使ってチャット
+ * @param {string} message - ユーザーのメッセージ
+ * @param {string} mode - 'armor' または 'normal'（キャラクターモード）
+ * @param {string} userId - ユーザーID（オプション）
+ * @returns {Promise<string>} AI の応答
+ */
+async function chat(message, mode = 'armor', userId = 'default') {
+    try {
+        // APIキーがない場合
+        if (!model) {
+            throw new Error('Gemini API が初期化されていません');
+        }
+
+        console.log(`🤖 Gemini リクエスト: "${message}" (mode: ${mode})`);
+
+        // モードに応じたプロンプト調整
+        let systemPrompt = ROCKMAN_PERSONALITY;
+
+        if (mode === 'armor') {
+            systemPrompt += `\n\n現在、あなたは「装甲モード」です。少し力強く、頼もしい雰囲気で話してください。`;
+        } else {
+            systemPrompt += `\n\n現在、あなたは「通常モード」です。いつも通り、優しく親しみやすく話してください。`;
+        }
+
+        // プロンプト構築
+        const prompt = `${systemPrompt}\n\nユーザー: ${message}\nロックマン:`;
+
+        // Gemini API 呼び出し
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        // 履歴に追加
+        addToChatHistory(userId, 'user', message);
+        addToChatHistory(userId, 'model', text);
+
+        console.log(`✅ Gemini 応答: "${text}"`);
+
+        return text;
+
+    } catch (error) {
+        console.error('❌ Gemini API エラー:', error);
+
+        // エラー時のフォールバック応答
+        if (error.message.includes('API key')) {
+            return 'すみません、API キーが設定されていないようです。管理者に確認してください。';
+        } else if (error.message.includes('quota')) {
+            return 'すみません、現在API の利用制限に達しています。しばらくしてからもう一度お試しください。';
+        } else {
+            return 'すみません、今うまく答えられませんでした。もう一度聞いてもらえますか？';
+        }
+    }
+}
+
+// ============================================
+// 補助関数：要約
+// ============================================
+/**
+ * テキストを要約する
+ * @param {string} text - 要約するテキスト
+ * @returns {Promise<string>} 要約結果
+ */
+async function summarize(text) {
+    try {
+        if (!model) {
+            throw new Error('Gemini API が初期化されていません');
+        }
+
+        const prompt = `以下のテキストを3〜5文で簡潔に要約してください。\n\n${text}`;
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+
+        return response.text();
+
+    } catch (error) {
+        console.error('❌ 要約エラー:', error);
+        return 'すみません、要約できませんでした。';
+    }
+}
+
+// ============================================
+// 補助関数：質問応答（検索結果付き）
+// ============================================
+/**
+ * 検索結果を元に質問に答える
+ * @param {string} question - 質問
+ * @param {string} context - 検索結果などのコンテキスト
+ * @returns {Promise<string>} 回答
+ */
+async function answerWithContext(question, context) {
+    try {
+        if (!model) {
+            throw new Error('Gemini API が初期化されていません');
+        }
+
+        const prompt = `
+${ROCKMAN_PERSONALITY}
+
+以下の情報を参考にして、ユーザーの質問に答えてください。
+
+【参考情報】
+${context}
+
+【質問】
+${question}
+
+【回答】
+`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+
+        return response.text();
+
+    } catch (error) {
+        console.error('❌ 質問応答エラー:', error);
+        return 'すみません、今うまく答えられませんでした。';
+    }
+}
+
+// ============================================
+// エクスポート
+// ============================================
+module.exports = {
+    chat,
+    summarize,
+    answerWithContext,
+    getChatHistory,
+    clearChatHistory
+};
