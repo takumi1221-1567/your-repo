@@ -306,10 +306,19 @@ async function handleChangeCommand() {
     // 返信動画再生
     if (window.videoController) {
         await window.videoController.playChangeReply();
-    }
 
-    setMode('armor');
-    speak('装甲モードに切り替えました');
+        // videoController内で既にモード変更と動画再生を行っているので
+        // ここではUIの更新のみを行う
+        currentMode = 'armor';
+        modeText.textContent = '装甲モード';
+        modeIndicator.classList.remove('normal-mode');
+        modeIndicator.classList.add('armor-mode');
+        console.log('✅ 装甲モードに切り替わりました（UI更新完了）');
+        speak('装甲モードに切り替えました');
+    } else {
+        setMode('armor');
+        speak('装甲モードに切り替えました');
+    }
 }
 
 // ============================================
@@ -337,7 +346,13 @@ function handlePasswordSubmit() {
         // 返信動画再生
         if (window.videoController) {
             window.videoController.playCastoffReply().then(() => {
-                setMode('normal');
+                // videoController内で既にモード変更と動画再生を行っているので
+                // ここではUIの更新のみを行う
+                currentMode = 'normal';
+                modeText.textContent = '通常モード';
+                modeIndicator.classList.remove('armor-mode');
+                modeIndicator.classList.add('normal-mode');
+                console.log('✅ 通常モードに切り替わりました（UI更新完了）');
                 speak('通常モードに切り替えました');
             });
         } else {

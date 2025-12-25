@@ -291,25 +291,37 @@ class VideoController {
     // 「チェンジ」返信動画再生
     // ============================================
     async playChangeReply() {
-        console.log('🎬 チェンジ返信動画再生');
+        console.log('🎬 チェンジ返信動画再生開始');
         this.currentState = 'action';
         this.stopIdleTimer();
 
         const videoPath = this.videoPaths.normal.changeReply;
+        console.log('🎬 チェンジ動画パス:', videoPath);
 
-        // 動画終了後に装甲モードの待機動画へ
-        return new Promise(async (resolve) => {
-            // 先に動画切り替えを完了させる
-            await this.switchVideo(videoPath, false);
+        // 動画を再生（ループなし）
+        await this.switchVideo(videoPath, false);
+        console.log('🎬 チェンジ動画再生中...');
 
-            // 切り替え完了後のactiveVideoにイベントリスナーを追加
+        // 動画終了を待つ
+        return new Promise((resolve) => {
             const handleEnd = async () => {
+                console.log('🎬 チェンジ動画終了');
                 this.activeVideo.removeEventListener('ended', handleEnd);
+
+                // モードを装甲に切り替え
+                console.log('🔄 モードを装甲に切り替え');
                 this.currentMode = 'armor';
+
+                // 装甲モードの待機動画を再生
+                console.log('🎬 装甲モードの待機動画を再生:', this.videoPaths.armor.idle);
                 await this.playIdleVideo();
+
+                console.log('✅ チェンジ完了');
                 resolve();
             };
+
             this.activeVideo.addEventListener('ended', handleEnd);
+            console.log('🎬 チェンジ動画のendedイベントリスナー登録完了');
         });
     }
 
@@ -317,25 +329,37 @@ class VideoController {
     // 「キャストオフ」返信動画再生
     // ============================================
     async playCastoffReply() {
-        console.log('🎬 キャストオフ返信動画再生');
+        console.log('🎬 キャストオフ返信動画再生開始');
         this.currentState = 'action';
         this.stopIdleTimer();
 
         const videoPath = this.videoPaths.armor.castoffReply;
+        console.log('🎬 キャストオフ動画パス:', videoPath);
 
-        // 動画終了後に通常モードの待機動画へ
-        return new Promise(async (resolve) => {
-            // 先に動画切り替えを完了させる
-            await this.switchVideo(videoPath, false);
+        // 動画を再生（ループなし）
+        await this.switchVideo(videoPath, false);
+        console.log('🎬 キャストオフ動画再生中...');
 
-            // 切り替え完了後のactiveVideoにイベントリスナーを追加
+        // 動画終了を待つ
+        return new Promise((resolve) => {
             const handleEnd = async () => {
+                console.log('🎬 キャストオフ動画終了');
                 this.activeVideo.removeEventListener('ended', handleEnd);
+
+                // モードを通常に切り替え
+                console.log('🔄 モードを通常に切り替え');
                 this.currentMode = 'normal';
+
+                // 通常モードの待機動画を再生
+                console.log('🎬 通常モードの待機動画を再生:', this.videoPaths.normal.idle);
                 await this.playIdleVideo();
+
+                console.log('✅ キャストオフ完了');
                 resolve();
             };
+
             this.activeVideo.addEventListener('ended', handleEnd);
+            console.log('🎬 キャストオフ動画のendedイベントリスナー登録完了');
         });
     }
 
