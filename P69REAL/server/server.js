@@ -366,6 +366,62 @@ app.post('/api/send', async (req, res) => {
 });
 
 // --------------------------------------------
+// 最新ニュース取得
+// --------------------------------------------
+app.get('/api/news', async (req, res) => {
+    try {
+        console.log('📰 ニュース取得リクエスト');
+
+        // ニューススケジューラーが利用可能かチェック
+        if (!newsScheduler) {
+            return res.json({
+                success: false,
+                error: 'ニュース機能が設定されていません'
+            });
+        }
+
+        // 最新ニュースを取得
+        const newsList = await newsScheduler.fetchLatestNews();
+
+        if (!newsList || newsList.length === 0) {
+            return res.json({
+                success: true,
+                message: '申し訳ありません。現在、最新のニュースを取得できませんでした。後でもう一度お試しください。',
+                newsCount: 0
+            });
+        }
+
+        // ニュースを整形してメッセージを作成
+        let message = '最新のAIニュースをお伝えします。\n\n';
+
+        newsList.forEach((news, index) => {
+            message += `${index + 1}. ${news.source}: ${news.title}\n`;
+            if (news.summary) {
+                message += `   ${news.summary}\n`;
+            }
+            message += `\n`;
+        });
+
+        message += 'これらのニュースについて、詳しく知りたいことはありますか？';
+
+        res.json({
+            success: true,
+            message: message,
+            newsCount: newsList.length,
+            news: newsList
+        });
+
+    } catch (error) {
+        console.error('❌ ニュース取得エラー:', error);
+        res.status(500).json({
+            success: false,
+            error: 'ニュース取得に失敗しました',
+            details: error.message
+        });
+    }
+});
+
+// --------------------------------------------
 // OCR（画像から文字認識）
 // --------------------------------------------
 app.post('/api/ocr', async (req, res) => {

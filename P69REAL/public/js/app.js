@@ -261,6 +261,9 @@ function detectCommand(text) {
     if (lowerText.includes('送って')) {
         return 'send';
     }
+    if (lowerText.includes('ニュース') || lowerText.includes('news')) {
+        return 'news';
+    }
 
     return null;
 }
@@ -284,6 +287,9 @@ async function handleCommand(command, text) {
             break;
         case 'send':
             await handleSendCommand();
+            break;
+        case 'news':
+            await handleNewsCommand();
             break;
     }
 }
@@ -473,6 +479,43 @@ async function handleMessageSubmit() {
     } finally {
         hideStatus();
         sendFlow = { active: false, target: null, recipient: null, message: null };
+    }
+}
+
+// ============================================
+// ニュースコマンド（最新ニュース取得）
+// ============================================
+async function handleNewsCommand() {
+    showStatus('ニュース取得中...');
+
+    // 話す動画再生開始
+    if (window.videoController) {
+        window.videoController.startSpeaking();
+    }
+
+    try {
+        const response = await fetch('/api/news', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.message) {
+            speak(data.message);
+        } else {
+            speak('ニュースを取得できませんでした');
+        }
+    } catch (error) {
+        console.error('ニュース取得エラー:', error);
+        speak('ニュースを取得できませんでした');
+    } finally {
+        hideStatus();
+
+        // 話す動画終了
+        if (window.videoController) {
+            window.videoController.stopSpeaking();
+        }
     }
 }
 
