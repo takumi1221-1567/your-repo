@@ -9,7 +9,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // 設定
 // ============================================
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL_NAME = 'gemini-pro'; // または 'gemini-1.5-pro' など
+const MODEL_NAME = 'gemini-1.5-flash'; // 最新の高速モデル（gemini-1.5-pro も利用可能）
 
 // ============================================
 // Gemini クライアント初期化
