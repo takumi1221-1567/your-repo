@@ -20,12 +20,25 @@
         <!-- 動画表示エリア -->
         <!-- ============================================ -->
         <div id="video-container">
-            <!-- キャラクター動画 -->
+            <!-- キャラクター動画1（メイン） -->
             <video
-                id="character-video"
+                id="character-video-1"
+                class="character-video active"
                 playsinline
                 muted
                 autoplay
+                loop
+                preload="auto"
+            >
+                お使いのブラウザは動画再生に対応していません。
+            </video>
+
+            <!-- キャラクター動画2（バッファ） -->
+            <video
+                id="character-video-2"
+                class="character-video"
+                playsinline
+                muted
                 loop
                 preload="auto"
             >

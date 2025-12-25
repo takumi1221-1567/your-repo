@@ -72,11 +72,23 @@ html, body {
     background: #000000;
 }
 
-#character-video {
+/* 動画要素（2つ重ね合わせ） */
+.character-video {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+}
+
+/* アクティブな動画を表示 */
+.character-video.active {
+    opacity: 1;
+    z-index: 2;
 }
 
 /* ローディング表示 */

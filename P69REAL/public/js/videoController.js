@@ -8,14 +8,20 @@
 // ============================================
 class VideoController {
     constructor() {
-        // DOM要素
-        this.videoElement = document.getElementById('character-video');
+        // DOM要素（2つのvideo要素）
+        this.video1 = document.getElementById('character-video-1');
+        this.video2 = document.getElementById('character-video-2');
         this.loadingElement = document.getElementById('video-loading');
+
+        // アクティブな動画（現在表示中）
+        this.activeVideo = this.video1;
+        this.inactiveVideo = this.video2;
 
         // 現在の状態
         this.currentMode = 'armor'; // 'armor' or 'normal'
         this.currentState = 'idle'; // 'idle', 'speaking', 'action'
         this.isSpeaking = false;
+        this.currentVideoPath = ''; // 現在再生中の動画パス
 
         // タイマー
         this.idleTimer = null;
@@ -65,20 +71,37 @@ class VideoController {
     // イベントリスナー設定
     // ============================================
     setupEventListeners() {
-        // 動画読み込み完了
-        this.videoElement.addEventListener('loadeddata', () => {
+        // 動画1のイベント
+        this.video1.addEventListener('loadeddata', () => {
             this.hideLoading();
-            console.log('✅ 動画読み込み完了');
+            console.log('✅ 動画1 読み込み完了');
         });
 
-        // 動画再生終了
-        this.videoElement.addEventListener('ended', () => {
-            this.handleVideoEnded();
+        this.video1.addEventListener('ended', () => {
+            if (this.video1 === this.activeVideo) {
+                this.handleVideoEnded();
+            }
         });
 
-        // 動画再生エラー
-        this.videoElement.addEventListener('error', (e) => {
-            console.error('❌ 動画読み込みエラー:', e);
+        this.video1.addEventListener('error', (e) => {
+            console.error('❌ 動画1 読み込みエラー:', e);
+            this.hideLoading();
+        });
+
+        // 動画2のイベント
+        this.video2.addEventListener('loadeddata', () => {
+            this.hideLoading();
+            console.log('✅ 動画2 読み込み完了');
+        });
+
+        this.video2.addEventListener('ended', () => {
+            if (this.video2 === this.activeVideo) {
+                this.handleVideoEnded();
+            }
+        });
+
+        this.video2.addEventListener('error', (e) => {
+            console.error('❌ 動画2 読み込みエラー:', e);
             this.hideLoading();
         });
 
@@ -88,22 +111,23 @@ class VideoController {
     }
 
     // ============================================
-    // 動画読み込み
+    // 動画読み込み（初回のみ）
     // ============================================
     async loadVideo(videoPath, autoplay = true, loop = true) {
         return new Promise((resolve, reject) => {
             // ローディング表示
             this.showLoading();
 
-            // 動画ソース設定
-            this.videoElement.src = videoPath;
-            this.videoElement.loop = loop;
-            this.videoElement.load();
+            // アクティブな動画に設定
+            this.activeVideo.src = videoPath;
+            this.activeVideo.loop = loop;
+            this.activeVideo.load();
+            this.currentVideoPath = videoPath;
 
             // 読み込み完了時
-            this.videoElement.onloadeddata = () => {
+            this.activeVideo.onloadeddata = () => {
                 if (autoplay) {
-                    this.videoElement.play().catch(err => {
+                    this.activeVideo.play().catch(err => {
                         console.error('自動再生エラー:', err);
                     });
                 }
@@ -112,7 +136,7 @@ class VideoController {
             };
 
             // エラー時
-            this.videoElement.onerror = (error) => {
+            this.activeVideo.onerror = (error) => {
                 console.error('動画読み込みエラー:', error);
                 this.hideLoading();
                 reject(error);
@@ -121,54 +145,61 @@ class VideoController {
     }
 
     // ============================================
-    // スムーズな動画切り替え（暗転なし）
+    // スムーズな動画切り替え（暗転なし・2つの動画を重ねて切り替え）
     // ============================================
     async switchVideo(videoPath, loop = true) {
-        // 同じ動画の場合は何もしない（暗転防止）
-        if (this.videoElement.src.endsWith(videoPath)) {
+        // 同じ動画の場合は何もしない
+        if (this.currentVideoPath === videoPath) {
             console.log('🎬 同じ動画なのでスキップ:', videoPath);
-            // ループ設定だけ更新
-            this.videoElement.loop = loop;
+            this.activeVideo.loop = loop;
             return Promise.resolve();
         }
 
-        // 新しい動画を事前読み込み
-        const tempVideo = document.createElement('video');
-        tempVideo.src = videoPath;
-        tempVideo.preload = 'auto';
-        tempVideo.loop = loop;
-        tempVideo.muted = true;
-        tempVideo.playsInline = true;
+        console.log('🎬 動画切り替え開始:', videoPath);
 
         return new Promise((resolve) => {
-            tempVideo.onloadeddata = async () => {
-                // ソースを切り替え（load()を呼ばずに直接設定）
-                this.videoElement.src = videoPath;
-                this.videoElement.loop = loop;
+            // 非アクティブな動画（背面）に次の動画を設定
+            this.inactiveVideo.src = videoPath;
+            this.inactiveVideo.loop = loop;
+            this.inactiveVideo.currentTime = 0;
+            this.inactiveVideo.load();
 
-                // currentTimeを0にリセット
-                this.videoElement.currentTime = 0;
-
-                // 即座に再生（load()なしでもautoplayで再生される）
+            // 動画が再生可能になったら
+            this.inactiveVideo.oncanplay = async () => {
                 try {
-                    await this.videoElement.play();
-                    console.log('🎬 動画切り替え:', videoPath);
-                    resolve();
+                    // 背面で動画再生を開始
+                    await this.inactiveVideo.play();
+
+                    // 少し待ってから切り替え（動画が実際に再生開始するまで）
+                    setTimeout(() => {
+                        // アクティブ/非アクティブを入れ替え
+                        this.activeVideo.classList.remove('active');
+                        this.inactiveVideo.classList.add('active');
+
+                        // 参照を入れ替え
+                        const temp = this.activeVideo;
+                        this.activeVideo = this.inactiveVideo;
+                        this.inactiveVideo = temp;
+
+                        // 古い動画を停止
+                        this.inactiveVideo.pause();
+
+                        // 現在のパスを更新
+                        this.currentVideoPath = videoPath;
+
+                        console.log('✅ 動画切り替え完了:', videoPath);
+                        resolve();
+                    }, 50); // 50ms待機
+
                 } catch (err) {
-                    console.error('再生エラー:', err);
-                    // エラー時のみload()を呼ぶ
-                    this.videoElement.load();
-                    this.videoElement.play().catch(() => {});
+                    console.error('❌ 動画再生エラー:', err);
                     resolve();
                 }
             };
 
-            // タイムアウト処理（5秒以内にロードできない場合）
+            // タイムアウト処理（5秒）
             setTimeout(() => {
-                console.warn('⚠️ 動画読み込みタイムアウト、強制切り替え');
-                this.videoElement.src = videoPath;
-                this.videoElement.loop = loop;
-                this.videoElement.play().catch(() => {});
+                console.warn('⚠️ 動画読み込みタイムアウト');
                 resolve();
             }, 5000);
         });
