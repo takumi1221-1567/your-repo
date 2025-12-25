@@ -37,8 +37,13 @@ async function connect() {
         console.log('🔌 MongoDB に接続中...');
 
         client = new MongoClient(MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
+            serverSelectionTimeoutMS: 10000,
+            socketTimeoutMS: 45000,
+            connectTimeoutMS: 30000,
+            maxPoolSize: 10,
+            minPoolSize: 1,
+            retryWrites: true,
+            retryReads: true
         });
 
         await client.connect();
