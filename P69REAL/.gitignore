@@ -1,0 +1,69 @@
+# ===========================================
+# P69REAL - Git除外設定
+# ===========================================
+
+# 環境変数（APIキーを含むため絶対にコミットしない）
+.env
+.env.local
+.env.*.local
+
+# 依存関係
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ビルド出力
+dist/
+build/
+.next/
+out/
+
+# ログファイル
+logs/
+*.log
+
+# OS関連
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE関連
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# テスト関連
+coverage/
+.nyc_output/
+
+# キャッシュ
+.cache/
+.parcel-cache/
+.eslintcache
+
+# 一時ファイル
+tmp/
+temp/
+*.tmp
+
+# ===========================================
+# 注意: 動画ファイルについて
+# ===========================================
+# 動画ファイルは容量が大きいため、通常はGitにコミットしません
+# 必要に応じて以下のコメントを外してください
+#
+# videos/**/*.mp4
+# videos/**/*.mov
+# videos/**/*.avi
+#
+# 動画ファイルの管理方法:
+# 1. Git LFS を使用する
+# 2. 別途ストレージ（S3など）にアップロードする
+# 3. README.md に動画の入手方法を記載する
+# ===========================================
