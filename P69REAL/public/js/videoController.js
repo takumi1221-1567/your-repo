@@ -301,12 +301,12 @@ class VideoController {
         // 動画終了後に装甲モードの待機動画へ
         return new Promise((resolve) => {
             const handleEnd = async () => {
-                this.videoElement.removeEventListener('ended', handleEnd);
+                this.activeVideo.removeEventListener('ended', handleEnd);
                 this.currentMode = 'armor';
                 await this.playIdleVideo();
                 resolve();
             };
-            this.videoElement.addEventListener('ended', handleEnd);
+            this.activeVideo.addEventListener('ended', handleEnd);
         });
     }
 
@@ -324,12 +324,12 @@ class VideoController {
         // 動画終了後に通常モードの待機動画へ
         return new Promise((resolve) => {
             const handleEnd = async () => {
-                this.videoElement.removeEventListener('ended', handleEnd);
+                this.activeVideo.removeEventListener('ended', handleEnd);
                 this.currentMode = 'normal';
                 await this.playIdleVideo();
                 resolve();
             };
-            this.videoElement.addEventListener('ended', handleEnd);
+            this.activeVideo.addEventListener('ended', handleEnd);
         });
     }
 
